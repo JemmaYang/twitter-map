@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <script src="http://d3js.org/d3.v3.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+
+    <style>
+   /* On mouse hover, lighten state color */
+path:hover {
+    fill-opacity: .7;
+}
+
+/* Style for Custom Tooltip */
+div.tooltip {   
+    position: absolute;           
+    text-align: center;           
+    width: 60px;                  
+    height: 28px;                 
+    padding: 2px;             
+    font: 12px sans-serif;        
+    background: white;   
+    border: 0px;      
+    border-radius: 8px;           
+    pointer-events: none;         
+}
+
+/*svg.usMap{
+   position: absolute;  
+   top:10px; 
+}
+   
+svg.barChart{
+   position: absolute;  
+   top:600px; 
+}    */ 
+/* Legend Font Style */
+body {
+    font: 11px sans-serif;
+}
+        
+/* Legend Position Style */
+/*.legend {
+    position:absolute;
+    left:800px;
+    top:350px;
+}*/
+    </style>
+
+</head>
+
+<body>
+<script>
+   
+    var width = 960;
+    var height = 900;
+
+    var svg = d3.select("body").append("svg")
+        .attr("width", width)
+        .attr("height", height);
+        
+
+    var div = d3.select("body")
+            .append("div")   
+            .attr("class", "tooltip")               
+            .style("opacity", 0);
+
+     var projection = d3.geo.albersUsa()
+        .scale([950]) // scales map
+        
+        .translate([width / 2.5, height / 3]); // centers in SVG
+
+     var path = d3.geo.path()
+        .projection(projection);
+
+
+    var color = d3.scale.quantize()
+                    .range(["rgb(237,248,233)", "rgb(186,228,179)",
+                     "rgb(116,196,118)", "rgb(49,163,84)","rgb(0,109,44)"]);    
+
+        d3.json("us.json", function drawMap (data) {
+                      console.log(data.features);
+          svg.selectAll("path")
+                   .data(data.features)
+                   .enter()
+                   .append("path")
+                   .attr("d", path)
+                   .style("stroke", "#fff")
+                   .style("stroke-width", "0.4")
+                   .style("fill", "rgb(213,222,217)" )
+                       .on("mouseover", function(d) { 
+                       var name = d.properties.name;     
+        div.transition()        
+           .duration(200)      
+           .style("opacity", .9);      
+           div.text(name)
+           .style("left", (d3.event.pageX) + "px")     
+           .style("top", (d3.event.pageY - 28) + "px");    
+    })   
+
+    // fade out tooltip on mouse out               
+    .on("mouseout", function(d) {       
+        div.transition()        
+           .duration(500)      
+           .style("opacity", 0);   
+    });
+               
+        });
+
+   
+
+</script>
+</body>
+
+<script >
+    var socket = io.connect();
+    var identIncr = 0;
+    var rectArray = [];
+    var textArray = [];
+    var groupText = [];
+    var totalTweet = 0;
+    var initXText = 85;
+    var initXRect = 10;
+    var initYRect = 570;
+    var initFirstLine = 50;
+    var start = false;
+    var sec = 0;
+
+    // var svg = d3.select("body").append("svg")
+    //     .attr("width", 1200)
+    //     .attr("height", 200)
+    //     .attr("class", "barChart");
+
+    var groupArray = [];
+
+    var textHashtag = svg.append("text")
+        .attr("x", 10)
+        .attr("y", 555)
+        .text("#HASHTAG")
+        .attr("font-family", "sans-serif")
+        .attr("font-size", "18px")
+        .style("font-weight", "bold")
+        .style("text-decoration", "underline");
+
+    var textCount = svg.append("text")
+        .attr("x", 560)
+        .attr("y", 555)
+        .text("COUNT")
+        .attr("font-family", "sans-serif")
+        .attr("font-size", "18px")
+        .style("font-weight", "bold")
+        .style("text-decoration", "underline");
+
+    var textFreq = svg.append("text")
+        .attr("x", 650)
+        .attr("y", 555)
+        .text("%")
+        .attr("font-family", "sans-serif")
+        .attr("font-size", "18px")
+        .style("font-weight", "bold")
+        .style("text-decoration", "underline");
+
+    var textTotal = svg.append("text")
+        .attr("x", 700)
+        .attr("y", 555)
+        .text("Total Tweet 0")
+        .attr("font-family", "sans-serif")
+        .attr("font-size", "18px");
+
+    var clock = svg.append("text")
+        .attr("x", 850)
+        .attr("y", 555)
+        .text("from 0 sec")
+        .attr("font-family", "sans-serif")
+        .attr("font-size", "18px");
+
+    function checkValue(name) {
+        for (var i=0; i<groupArray.length; i++) {
+            if (groupArray[i][0][0].childNodes[1].textContent === name) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    setInterval(function() {
+        if (start) {
+            sec++;
+            clock[0][0].textContent = "from "+sec+" sec";
+        }
+    }, 1000);
+
+    socket.on('message', function (data) {
+        start = true;
+        var check = checkValue(data.name);
+        totalTweet++;
+        updateTotalTweet();
+        if (check === -1) {
+            createNewRow(data.name,identIncr);
+        }
+        else {
+            updateRow(data.name,check);
+        }
+    });
+
+
+    function createNewRow(hashtag,num) {
+
+        updateAllExceptInput(hashtag);
+        
+        var group = svg.append("g");
+
+        var rect = group.append("rect")
+            .attr("x", initXRect)
+            .attr("y", initYRect)
+            .attr("height", 50)
+            .attr("width", 750)
+            .attr("fill", "none")
+            .attr("stroke", "white");
+
+        var font_dim = "18px";
+        if (hashtag.length >= 35) {
+            font_dim = "12px";
+        }
+
+        var word = hashtag.split("#")[1];
+
+        var textHashtag = group.append("text")
+            .attr("x", 10)
+            .attr("y", initYRect+32)
+            .text(hashtag)
+            .attr("fill", "#3BA9EE")
+            .attr("font-family", "sans-serif")
+            .attr("font-size", font_dim);
+
+        var textCount = group.append("text")
+            .attr("x", 580)
+            .attr("y", initYRect+35)
+            .text("1")
+            .attr("font-family", "sans-serif")
+            .attr("font-size", "18px");
+
+        var freq = (100/totalTweet).toString().substring(0,5);
+
+        var textFreq = group.append("text")
+            .attr("x", 650)
+            .attr("y", initYRect+35)
+            .text(freq)
+            .attr("font-family", "sans-serif")
+            .attr("font-size", "18px");
+
+        var prp = calculateProportion(1);
+
+        var rectCompare = group.append("rect")
+            .attr("x", 150)
+            .attr("y", initYRect+15)
+            .attr("height", 25)
+            .attr("width", prp)
+            .style("fill", function() { return colores_google(num); });
+            // .attr("stroke", "black");
+
+        initXText += 40;
+        initYRect += 40;
+        initFirstLine += 40;
+        groupArray.push(group);
+        sendBallToRow(initYRect-18,num);
+    }
+
+    function updateRow(hashtag,ind) {
+        updateAllExceptInput(hashtag);
+        var newCount = parseInt(groupArray[ind][0][0].childNodes[2].textContent)+1;
+        groupArray[ind][0][0].childNodes[2].textContent = newCount;
+        var prp = ((newCount*100)/totalTweet).toString().substring(0,5);
+        groupArray[ind][0][0].childNodes[3].textContent = prp;
+        var cy = groupArray[ind][0][0].childNodes[3].attributes[1].nodeValue;
+        sendBallToRow(cy,ind);
+        var prpLength = calculateProportion(newCount);
+        groupArray[ind][0][0].childNodes[4].attributes[3].nodeValue = prpLength;
+        orderAllRow();
+    }
+
+    function updateAllExceptInput(hashtag) {
+        for (var i=0; i<groupArray.length; i++) {
+            if (groupArray[i][0][0].childNodes[1].textContent !== name) {
+                var count = parseInt(groupArray[i][0][0].childNodes[2].textContent);
+                var prp = ((count*100)/totalTweet).toString().substring(0,5);
+                groupArray[i][0][0].childNodes[3].textContent = prp;
+                var prpLength = calculateProportion(count);
+                groupArray[i][0][0].childNodes[4].attributes[3].nodeValue = prpLength;
+            }
+        }
+    }
+
+    function orderAllRow() {
+        var swapped;
+        do {
+            swapped = false;
+            for (var i=0; i<groupArray.length-1; i++) {
+                var j=i+1;
+                if (parseInt(groupArray[i][0][0].childNodes[2].textContent) <  parseInt(groupArray[j][0][0].childNodes[2].textContent)) {
+                    var textI = groupArray[i][0][0].childNodes[1].textContent;
+                    var countI = groupArray[i][0][0].childNodes[2].textContent;
+                    var freqI = groupArray[i][0][0].childNodes[3].textContent;
+                    var rectLen = groupArray[i][0][0].childNodes[4].attributes[3].nodeValue;
+                    groupArray[i][0][0].childNodes[1].textContent = groupArray[j][0][0].childNodes[1].textContent;
+                    groupArray[i][0][0].childNodes[2].textContent = groupArray[j][0][0].childNodes[2].textContent;
+                    groupArray[i][0][0].childNodes[3].textContent = groupArray[j][0][0].childNodes[3].textContent;
+                    groupArray[i][0][0].childNodes[4].attributes[3].nodeValue = groupArray[j][0][0].childNodes[4].attributes[3].nodeValue;
+                    groupArray[j][0][0].childNodes[1].textContent = textI;
+                    groupArray[j][0][0].childNodes[2].textContent = countI;
+                    groupArray[j][0][0].childNodes[3].textContent = freqI;
+                    groupArray[j][0][0].childNodes[4].attributes[3].nodeValue = rectLen;
+                    swapped = true;
+                }
+            }
+        } while (swapped);
+    }
+
+    function updateTotalTweet() {
+        textTotal[0][0].textContent = "Total Tweet: "+totalTweet;
+    }
+
+    function sendBallToRow(cy,i) {
+        var circle = svg.append("circle")
+            .attr("cx", 1500)
+            .attr("cy", cy)
+            .attr("r", 12)
+            .attr("fill", function() { return colores_google(i); })
+            // .attr("stroke", "black");
+        circle.transition().duration(800).attr("cx", 750).attr("cy",cy);
+        circle.transition().delay(700).duration(400).style("opacity",0);
+    }
+
+    function getMax() {
+        var max = 0;
+        for (var i=0; i<groupArray.length; i++) {
+            if (parseInt(groupArray[i][0][0].childNodes[2].textContent) >= max) {
+                max = parseInt(groupArray[i][0][0].childNodes[2].textContent);
+            }
+        }
+        return max;
+    }
+
+    function calculateProportion(count) {
+        var prp;
+        var max = getMax();
+        if (max !== 0) {
+            prp = (count*400)/max;
+        } else prp = 400;
+        return prp;
+    }
+
+    function colores_google(n) {
+        var i = Math.abs(n);
+        var colores_g = ["#3366cc", "#dc3912", "#ff9900", "#109618", "#990099", "#0099c6", "#dd4477", "#66aa00", "#b82e2e", "#316395", "#994499", "#22aa99", "#aaaa11", "#6633cc", "#e67300", "#8b0707", "#651067", "#329262", "#5574a6", "#3b3eac"];
+        return colores_g[i % colores_g.length];
+    }
+
+
+
+
+</script>
+
+</html>
