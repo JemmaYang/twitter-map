@@ -5,7 +5,14 @@ var http = require('http').Server(app);
 var io = require('socket.io')(http);
 var fs = require('fs');
 var Twit = require('twit');
-// var config = require('./config/config.json');
+// var NodeGeocoder = require('node-geocoder');
+// var geocoder = require('geocoder');
+var googleMapsClient = require('@google/maps').createClient({
+  key: 'AIzaSyADyrq87cv1tD0SuuvJwKEIr7_2G3YJvrM'
+});
+
+ 
+
 // var usStates = require('./public/us.json');
 
 http.listen(8080, function(){
@@ -39,6 +46,8 @@ app.use('/', express.static(__dirname + '/public'));
 
 var watchTags = ['#cop22', '#pollution','#climatechange','#globalwarming','#energy'];
 
+var watchLocations = ['-125.0011, 24.9493, -66.9326, 49.5904'];
+
 // keep the total number of tweets received and how many tweets received of that symbol
 var watchList = {
     total: 0,
@@ -54,11 +63,8 @@ io.on('connection', function(socket) {
 
             var tweetStream = client.stream('statuses/filter', {track: watchTags});
 
-            function mapTweet(tweet) {
-                    return {coordinates: tweet.coordinates};
-                       }
-
             tweetStream.on('tweet', function (tweet) {
+                 getGeolocation(tweet);
 
                 tweet.entities.hashtags.forEach(function (hashtag) {
                     var hashStr = normalize(hashtag.text); 
@@ -68,11 +74,7 @@ io.on('connection', function(socket) {
                         socket.emit('message', {name: hashStr});
                     }
                 });
-                  if(!tweet.coordinates) { return; }
-                    // saveTweet(tweet);
-                   socket.emit("tweet", mapTweet(tweet));
             });
-
     });
 
 
@@ -98,4 +100,50 @@ function arrayUnique(array) {
 
     return a;
 }
+
+
+function getGeolocation(tweet){
+      
+       
+  if (tweet.coordinates !== null) { 
+       var outputPonit ={};    
+       outputPonit.lat = tweet.coordinates.coordinates[0];
+       outputPonit.lng = tweet.coordinates.coordinates[1];
+       console.log( outputPonit);
+     }
+
+   else if (tweet.user.location){
+        
+       googleMapsClient.geocode( {address:tweet.user.location}, function(err, response) 
+  {
+    if (!err) 
+    { 
+      var lat = response.json.results[0].geometry.location.lat;
+      var lng = response.json.results[0].geometry.location.lng;
+      var outputPoint = {"lat": lat, "lng": lng};
+      console.log( outputPoint);
+      // outputPonit.lat = lat;
+      // outputPonit.lng = lng;    
+      // console.log(outputPonit.lat);
+      // console.log(outputPonit.lng); 
+
+    } 
+  });
+     }
+
+     else{
+      var lat = (Math.random() * (-125.0011 - 24.9493) + 24.9493).toFixed(3) * 1;
+      var lng = (Math.random() * (-66.9326 - 49.5904) + 49.5904).toFixed(3) * 1;
+      var outputPoint = {"lat": lat, "lng": lng};
+      console.log(outputPoint );
+          }      
+};
+
+
+// outputPonit.name = tweet.user.name;
+//        outputPonit.screen_name = tweet.user.screen_name;
+//        outputPonit.text = tweet.text;
+//        outputPonit.profile_image_url = tweet.user.profile_image_url;
+//        outputPonit.location = tweet.user.location;
+       
 

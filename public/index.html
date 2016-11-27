@@ -80,7 +80,7 @@ body {
                      "rgb(116,196,118)", "rgb(49,163,84)","rgb(0,109,44)"]);    
 
         d3.json("us.json", function drawMap (data) {
-                      console.log(data.features);
+                     
           svg.selectAll("path")
                    .data(data.features)
                    .enter()
