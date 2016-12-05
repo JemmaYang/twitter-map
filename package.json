@@ -4,9 +4,11 @@
   "description": "A D3.js project for the visualization of the trends of Twitter.",
   "main": "server/app.js",
   "dependencies": {
+    "@google/maps": "^0.3.0",
     "d3": "^4.4.0",
     "express": "^4.14.0",
     "fs": "0.0.1-security",
+    "google-maps-api": "^2.0.1",
     "path": "^0.12.7",
     "socket.io": "^1.5.1"
   },

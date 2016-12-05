@@ -1,23 +1,85 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html>
+<title>Climate Change in Twitter</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="./socket.io/socket.io.js"></script>
+<script src="http://d3js.org/topojson.v0.min.js"></script>
 
-<head>
-    <meta charset="utf-8">
-    <script src="http://d3js.org/d3.v3.min.js"></script>
-    <script src="/socket.io/socket.io.js"></script>
+<link rel="stylesheet" href="http://www.w3schools.com/lib/w3.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 
-    <style>
-   /* On mouse hover, lighten state color */
+
+<style>
+body,h1,h2,h3,h4,h5,h6 {font-family: "Lato", sans-serif}
+.w3-navbar,h1,button {font-family: "Montserrat", sans-serif}
+
+#tw_canvas {
+    height: 410px;
+    overflow: scroll;
+    text-align: left;
+  }
+
+.userName{
+    font-size: 15px;
+    font-weight: bold;
+    font-family: sans-serif;
+}
+
+ a { text-decoration: none}
+
+ 
+
+</style>
+
+<body>
+
+<!-- Navbar -->
+<div class="w3-top">
+  <ul class="w3-navbar w3-teal w3-card-2 w3-left-align w3-large">
+    <li class="w3-hide-medium w3-hide-large w3-opennav w3-right">
+      <a class="w3-padding-large w3-hover-white w3-large w3-teal" href="javascript:void(0);" onclick="myFunction()" title="Toggle Navigation Menu"><i class="fa fa-bars"></i></a>
+    </li>
+    <li><a href="#header" class="w3-padding-large w3-white">Home</a></li>
+    <li class="w3-hide-small"><a href="#location" class="w3-padding-large w3-hover-white">Location</a></li>
+    <li class="w3-hide-small"><a href="#trending" class="w3-padding-large w3-hover-white">Trending</a></li>
+  </ul>
+
+  <!-- Navbar on small screens -->
+  <div id="navDemo" class="w3-hide w3-hide-large w3-hide-medium">
+    <ul class="w3-navbar w3-left-align w3-large w3-black">
+      <li><a class="w3-padding-large" href="#location">Location</a></li>
+      <li><a class="w3-padding-large" href="#trending">Trending</a></li>
+    </ul>
+  </div>
+</div>
+
+<!-- Header -->
+<header class="w3-container w3-teal w3-left-align w3-padding-32">
+  <a name="header"><h1 class="w3-margin w3-padding-32">What are people discussing about #climatechange?</h1></a>
+  <h5 class="w3-padding-left">The web application visualizes a real time Twitter discussion about climate change in the world. The world map shows users' location, the bar chart displays TOP10 hashtages mentioned by tweets with a keyword "climate change", and the tweet wall presents all tweets with the keyword.</h5>
+</header>
+
+<!-- First Grid -->
+<div class="w3-padding-16 w3-container">
+    <div class ="w3-padding-medium">
+      <a name="location"><h2>Location</h2></a>   
+    </div>
+
+     <div id ="map" class="w3-twothird">
+     <style>
+    /* On mouse hover, lighten state color */
 path:hover {
-    fill-opacity: .7;
+    fill-opacity: .6;
 }
 
 /* Style for Custom Tooltip */
 div.tooltip {   
     position: absolute;           
     text-align: center;           
-    width: 60px;                  
-    height: 28px;                 
+    width: 60px;                                      
     padding: 2px;             
     font: 12px sans-serif;        
     background: white;   
@@ -26,95 +88,176 @@ div.tooltip {
     pointer-events: none;         
 }
 
-/*svg.usMap{
-   position: absolute;  
-   top:10px; 
+#divContainer{
+    opacity: 0;
 }
-   
-svg.barChart{
-   position: absolute;  
-   top:600px; 
-}    */ 
-/* Legend Font Style */
-body {
-    font: 11px sans-serif;
-}
-        
-/* Legend Position Style */
-/*.legend {
-    position:absolute;
-    left:800px;
-    top:350px;
-}*/
-    </style>
-
-</head>
-
-<body>
-<script>
-   
+</style>
+     <script>
     var width = 960;
-    var height = 900;
+    var height = 460;
 
-    var svg = d3.select("body").append("svg")
+    var svg = d3.select("#map").append("svg")
         .attr("width", width)
         .attr("height", height);
-        
 
-    var div = d3.select("body")
-            .append("div")   
-            .attr("class", "tooltip")               
+    var tooltip = d3.select('#map').append('div')
+            .attr('class', 'tooltip')
             .style("opacity", 0);
 
-     var projection = d3.geo.albersUsa()
-        .scale([950]) // scales map
-        
-        .translate([width / 2.5, height / 3]); // centers in SVG
+     var projection = d3.geo.equirectangular()
+         .center([0, 5 ])
+        .scale([140]) // scales map
+        .rotate([-180,0])
+        .translate([width / 2.2, height / 2]); // centers in SVG
 
      var path = d3.geo.path()
         .projection(projection);
 
+     var g = svg.append("g");
 
-    var color = d3.scale.quantize()
-                    .range(["rgb(237,248,233)", "rgb(186,228,179)",
-                     "rgb(116,196,118)", "rgb(49,163,84)","rgb(0,109,44)"]);    
-
-        d3.json("us.json", function drawMap (data) {
-                     
-          svg.selectAll("path")
-                   .data(data.features)
+     d3.json("countries.geo.json", function drawMap (error, json) {
+                    
+           var map = g.selectAll("path")
+                   .data(json.features)
                    .enter()
                    .append("path")
                    .attr("d", path)
                    .style("stroke", "#fff")
                    .style("stroke-width", "0.4")
                    .style("fill", "rgb(213,222,217)" )
-                       .on("mouseover", function(d) { 
-                       var name = d.properties.name;     
-        div.transition()        
-           .duration(200)      
-           .style("opacity", .9);      
-           div.text(name)
-           .style("left", (d3.event.pageX) + "px")     
-           .style("top", (d3.event.pageY - 28) + "px");    
-    })   
+                       .on('mousemove', function(d) {
+                         var name = d.properties.name; 
+                          tooltip.transition()        
+                                 .duration(200)      
+                                 .style("opacity", .9);      
+                          tooltip.text(name)
+                                 .style("left", (d3.event.pageX) + "px")     
+                                 .style("top", (d3.event.pageY - 28) + "px");  
+                        })
+                       .on('mouseout', function(d) {
+                          tooltip.transition()        
+                                 .duration(500)      
+                                 .style("opacity", 0); 
+                           });
 
-    // fade out tooltip on mouse out               
-    .on("mouseout", function(d) {       
-        div.transition()        
-           .duration(500)      
-           .style("opacity", 0);   
-    });
-               
+        socket.on('tw_map', function (data){
+             // var coordinates = projection([data.lng, data.lat]);
+        var location = [data.lng, data.lat];
+       
+        // // var projection = d3.geo.equirectangular();
+        // var tweetX = projection(location)[0];
+        // var tweetY = projection(location)[1];
+        // console.log(tweetX + ", " + tweetY );
+
+        var tweetContent = data.tweet;
+        console.log(data.tweet);
+
+
+              d3.select("g")
+              .append("circle")
+              .attr("cx", function(d){return projection(location)[0];})
+              .attr("cy", function(d){return projection(location)[1];})
+              .attr("r", "5px")
+              .attr("fill", "#18E1DF")
+              .style("opacity",0.7)
+              .attr("class", "dots")
+                   .on('mousemove', function(d) {
+                        console.log(tweetContent);
+                        showDiv(tweetContent);
+
+                           })
+
+                    .on('mouseout', function(d) {
+                          hideDiv(d);
+                           });
         });
 
-   
+});
 
-</script>
-</body>
+     function showDiv(data){
+        console.log(data);
+        var divContainer = document.getElementById("divContainer");
+        divContainer.setAttribute("style","opacity: 0.9;");
 
-<script >
-    var socket = io.connect();
+    var above = document.createElement('div');
+
+    var prof_url = document.createElement('a');
+    prof_url.setAttribute('href', 'https://twitter.com/' + data.screen_name);
+    prof_url.setAttribute('target', '_blank');
+
+    var img = document.createElement('img');
+    img.setAttribute('src', data.profile_image_url);
+    img.setAttribute('width', 40);
+    img.setAttribute('height', 40);
+    img.setAttribute('class', 'w3-round-large w3-left');
+
+    var twoNames = document.createElement('div');
+    twoNames.setAttribute("class", "w3-left w3-margin-left");
+     
+    var name = document.createElement('div');
+    name.setAttribute('class', 'userName');
+    name.innerText = ' ' + data.name;
+
+    var account_name = document.createElement('div');
+    account_name.setAttribute('class', 'w3-opacity');
+    account_name.innerText = ' @' + data.screen_name;
+
+    // var text = document.createElement('div');
+    // text.innerHTML = "<p>" + data.text + "/<p>"; 
+    // text.setAttribute("class","w3-left");
+
+    twoNames.appendChild(name);
+    twoNames.appendChild(account_name);
+
+    prof_url.appendChild(img);
+    prof_url.appendChild(twoNames);
+    // prof_url.appendChild(account_name);
+
+    above.appendChild(prof_url);
+
+    var tranDom = above.innerHTML;
+    console.log(tranDom);
+
+    divContainer.innerHTML = "<div>" + tranDom + "</div>";
+    divContainer.innerHTML += "<div class = 'w3-left'>" + "<p>" + data.text + "/<p>" + "</div>";
+
+     };
+
+     function hideDiv(d){
+        var divContainer = document.getElementById("divContainer");
+        divContainer.setAttribute("style","opacity: 0;");
+     }
+
+     </script>
+     </div>
+
+    <div class="w3-quarter w3-right">
+
+    <div class="w3-left w3-card-2 w3-round-xlarge w3-teal w3-padding">
+     <div ><span id ="countNum">Total Tweet: 0</span></div>
+      <div ><span id ="clock">From 0 sec</span></div>
+      </div>
+
+     <div class="w3-left  w3-card-2 w3-round-large w3-light-grey w3-padding w3-margin-top"><p>User location is a user-defined object. So the location might not be the real location of the tweet.</p></div>
+
+    <div id= "divContainer" class="w3-right w3-card-2 w3-round-large w3-white w3-padding w3-margin-top"></div>
+
+    
+
+    </div>
+
+</div>
+
+<!-- Second Grid -->
+
+<div class="w3-padding-16 w3-container w3-light-grey">
+  <div class ="w3-padding-medium">
+      <a name="trending"><h2>Trending</h2></a>   
+    </div>
+
+     <div id ="barContain" class="w3-twothird ">
+     <script>
+       var socket = io.connect();
     var identIncr = 0;
     var rectArray = [];
     var textArray = [];
@@ -122,58 +265,49 @@ body {
     var totalTweet = 0;
     var initXText = 85;
     var initXRect = 10;
-    var initYRect = 570;
+    var initYRect = 50;
     var initFirstLine = 50;
     var start = false;
     var sec = 0;
 
-    // var svg = d3.select("body").append("svg")
-    //     .attr("width", 1200)
-    //     .attr("height", 200)
-    //     .attr("class", "barChart");
+    var svg = d3.select("#barContain").append("svg")
+        .attr("width", 780)
+        .attr("height", 460)
+        .attr("class", "barChart");
 
     var groupArray = [];
 
     var textHashtag = svg.append("text")
         .attr("x", 10)
-        .attr("y", 555)
-        .text("#HASHTAG")
+        .attr("y", 35)
+        .text("TOP10 HASHTAGS")
         .attr("font-family", "sans-serif")
+        .attr("fill", "#4d4d4d")
         .attr("font-size", "18px")
         .style("font-weight", "bold")
         .style("text-decoration", "underline");
 
     var textCount = svg.append("text")
-        .attr("x", 560)
-        .attr("y", 555)
+        .attr("x", 610)
+        .attr("y", 35)
         .text("COUNT")
         .attr("font-family", "sans-serif")
+        .attr("fill", "#4d4d4d")
         .attr("font-size", "18px")
         .style("font-weight", "bold")
         .style("text-decoration", "underline");
 
     var textFreq = svg.append("text")
-        .attr("x", 650)
-        .attr("y", 555)
-        .text("%")
+        .attr("x", 700)
+        .attr("y", 35)
+        .text("PCT %")
         .attr("font-family", "sans-serif")
+        .attr("fill", "#4d4d4d")
         .attr("font-size", "18px")
         .style("font-weight", "bold")
         .style("text-decoration", "underline");
 
-    var textTotal = svg.append("text")
-        .attr("x", 700)
-        .attr("y", 555)
-        .text("Total Tweet 0")
-        .attr("font-family", "sans-serif")
-        .attr("font-size", "18px");
 
-    var clock = svg.append("text")
-        .attr("x", 850)
-        .attr("y", 555)
-        .text("from 0 sec")
-        .attr("font-family", "sans-serif")
-        .attr("font-size", "18px");
 
     function checkValue(name) {
         for (var i=0; i<groupArray.length; i++) {
@@ -184,18 +318,13 @@ body {
         return -1;
     }
 
-    setInterval(function() {
-        if (start) {
-            sec++;
-            clock[0][0].textContent = "from "+sec+" sec";
-        }
-    }, 1000);
+   
 
     socket.on('message', function (data) {
         start = true;
         var check = checkValue(data.name);
         totalTweet++;
-        updateTotalTweet();
+        
         if (check === -1) {
             createNewRow(data.name,identIncr);
         }
@@ -217,7 +346,7 @@ body {
             .attr("height", 50)
             .attr("width", 750)
             .attr("fill", "none")
-            .attr("stroke", "white");
+            .attr("stroke", "light");
 
         var font_dim = "18px";
         if (hashtag.length >= 35) {
@@ -230,34 +359,37 @@ body {
             .attr("x", 10)
             .attr("y", initYRect+32)
             .text(hashtag)
-            .attr("fill", "#3BA9EE")
+            .attr("fill", "#00a597")
             .attr("font-family", "sans-serif")
             .attr("font-size", font_dim);
 
         var textCount = group.append("text")
-            .attr("x", 580)
+            .attr("x", 630)
             .attr("y", initYRect+35)
             .text("1")
             .attr("font-family", "sans-serif")
+            .attr("fill", "#4d4d4d")
             .attr("font-size", "18px");
 
         var freq = (100/totalTweet).toString().substring(0,5);
 
         var textFreq = group.append("text")
-            .attr("x", 650)
+            .attr("x", 700)
             .attr("y", initYRect+35)
             .text(freq)
             .attr("font-family", "sans-serif")
+            .attr("fill", "#4d4d4d")
             .attr("font-size", "18px");
 
         var prp = calculateProportion(1);
 
         var rectCompare = group.append("rect")
-            .attr("x", 150)
+            .attr("x", 200)
             .attr("y", initYRect+15)
             .attr("height", 25)
-            .attr("width", prp)
-            .style("fill", function() { return colores_google(num); });
+            .attr("width", prp)  
+            .style("fill", ' #FFC732');
+            // .style("fill", function() { return colores_google(num); });
             // .attr("stroke", "black");
 
         initXText += 40;
@@ -317,9 +449,6 @@ body {
         } while (swapped);
     }
 
-    function updateTotalTweet() {
-        textTotal[0][0].textContent = "Total Tweet: "+totalTweet;
-    }
 
     function sendBallToRow(cy,i) {
         var circle = svg.append("circle")
@@ -328,7 +457,7 @@ body {
             .attr("r", 12)
             .attr("fill", function() { return colores_google(i); })
             // .attr("stroke", "black");
-        circle.transition().duration(800).attr("cx", 750).attr("cy",cy);
+        circle.transition().duration(800).attr("cx", 650).attr("cy",cy);
         circle.transition().delay(700).duration(400).style("opacity",0);
     }
 
@@ -353,13 +482,103 @@ body {
 
     function colores_google(n) {
         var i = Math.abs(n);
-        var colores_g = ["#3366cc", "#dc3912", "#ff9900", "#109618", "#990099", "#0099c6", "#dd4477", "#66aa00", "#b82e2e", "#316395", "#994499", "#22aa99", "#aaaa11", "#6633cc", "#e67300", "#8b0707", "#651067", "#329262", "#5574a6", "#3b3eac"];
+        var colores_g = ["#F98171", "#F99775", "#98D7FF", "#9D88F2", "#990099", "#0099c6", "#dd4477", "#66aa00", "#b82e2e", "#316395", "#994499", "#22aa99", "#aaaa11", "#6633cc", "#e67300", "#8b0707", "#651067", "#329262", "#5574a6", "#3b3eac"];
         return colores_g[i % colores_g.length];
     }
 
+     </script>
+     </div>
 
+    <div class="w3-third w3-left w3-round-xlarge w3-border-teal w3-leftbar w3-rightbar w3-topbar w3-bottombar">
+    <div id ="title" class="w3-center w3-container w3-teal"><h4>Tweets</h4></div>
+    <div id= "tw_canvas" class="w3-round-xlarge">
+     <script type="text/javascript">
+ var canvas = document.getElementById('tw_canvas');
+ var tweetNum = 0;
 
+ socket.on("tw_data", function(data) {
+    tweetNum++;
+    updateTweetNum();
 
+    var div = document.createElement('div');
+    div.setAttribute('class', "w3-card-2 w3-padding-medium w3-white w3-hover-shadow w3-margin w3-left");
+
+    var above = document.createElement('div');
+
+    var prof_url = document.createElement('a');
+    prof_url.setAttribute('href', 'https://twitter.com/' + data.screen_name);
+    prof_url.setAttribute('target', '_blank');
+
+    var img = document.createElement('img');
+    img.setAttribute('src', data.profile_image_url);
+    img.setAttribute('width', 40);
+    img.setAttribute('height', 40);
+    img.setAttribute('class', 'w3-round-large w3-left');
+
+    var twoNames = document.createElement('div');
+    twoNames.setAttribute("class", "w3-left w3-margin-left");
+     
+    var name = document.createElement('div');
+    name.setAttribute('class', 'userName');
+    name.innerText = ' ' + data.name;
+
+    var account_name = document.createElement('div');
+    account_name.setAttribute('class', 'w3-opacity');
+    account_name.innerText = ' @' + data.screen_name;
+
+    var text = document.createElement('div');
+    text.innerHTML = "<p>" + data.text + "/<p>"; 
+    text.setAttribute("class","w3-left");
+
+    twoNames.appendChild(name);
+    twoNames.appendChild(account_name);
+
+    prof_url.appendChild(img);
+    prof_url.appendChild(twoNames);
+    // prof_url.appendChild(account_name);
+
+    above.appendChild(prof_url);
+
+    div.appendChild(above);
+    div.appendChild(text);
+
+    canvas.insertBefore(div, canvas.firstChild);
+
+   });
+     </script>
+      </div>
+    </div>
+</div>
+
+<!-- Footer -->
+<footer class="w3-container w3-padding-16 w3-center w3-opacity">  
+ <p><a href ="https://github.com/JemmaYang">Yajing Yang</a> - LMC 6310 - Dec 05, 2016</p>
+</footer>
+
+<script>
+setInterval(function() {
+        if (start) {
+            sec++;
+            var clock = document.getElementById("clock");
+            clock.innerText = "From "+sec+" sec";
+        }
+    }, 1000);
+
+ function updateTweetNum(){
+        var countNum = document.getElementById("countNum");
+        countNum.innerText = "Total Tweet: " + tweetNum;
+        
+     }
+// Used to toggle the menu on small screens when clicking on the menu button
+function myFunction() {
+    var x = document.getElementById("navDemo");
+    if (x.className.indexOf("w3-show") == -1) {
+        x.className += " w3-show";
+    } else { 
+        x.className = x.className.replace(" w3-show", "");
+    }
+}
 </script>
 
+</body>
 </html>

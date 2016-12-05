@@ -44,7 +44,7 @@ app.use('/', express.static(__dirname + '/public'));
 //   });
 // }
 
-var watchTags = ['#cop22', '#pollution','#climatechange','#globalwarming','#energy'];
+// var watchTags = ['#cop22', '#pollution','#climatechange','#globalwarming','#energy'];
 
 var watchLocations = ['-125.0011, 24.9493, -66.9326, 49.5904'];
 
@@ -55,24 +55,61 @@ var watchList = {
 };
 
  //Set the watch symbols to zero.
-watchTags.forEach(function(v){
-  watchList.symbols[v] = 0;
-});
+// watchTags.forEach(function(v){
+//   watchList.symbols[v] = 0;
+// });
 
 io.on('connection', function(socket) {
 
-            var tweetStream = client.stream('statuses/filter', {track: watchTags});
+            var tweetStream = client.stream('statuses/filter', {track: ['climatechange','climate change'] });
 
-            tweetStream.on('tweet', function (tweet) {
-                 getGeolocation(tweet);
+              tweetStream.on('tweet', function (tweet) {
+              var info = {};
+              info.name = tweet.user.name;
+              info.screen_name = tweet.user.screen_name;
+              info.text = tweet.text;
+              info.profile_image_url = tweet.user.profile_image_url;
+
+              socket.emit('tw_data', info);
+
+                if (tweet.coordinates !== null) {     
+                      var lng = tweet.coordinates.coordinates[0];
+                      var lat = tweet.coordinates.coordinates[1];
+                      var outputPoint = {"lat": lat, "lng": lng};
+                      console.log( outputPoint);
+                      socket.emit('tw_map', {"lat": lat, "lng": lng, "tweet": info});
+                       }
+
+                else if (tweet.user.location){
+        
+                      googleMapsClient.geocode( {address:tweet.user.location}, function(err, response) 
+                     {
+                        if (!err) 
+                             { 
+                         var lat = response.json.results[0].geometry.location.lat;
+                         var lng = response.json.results[0].geometry.location.lng;
+                         var outputPoint = {"lat": lat, "lng": lng};
+                         console.log( outputPoint);
+                        socket.emit('tw_map', {"lat": lat, "lng": lng,"tweet": info});
+                            } 
+                    });
+                 }
+
+              else{
+                       var lat = (Math.random() * (49.3457868 - 24.7433195) + 24.7433195).toFixed(5) * 1;
+                       var lng = (Math.random() * (-66.9513812 + 124.7844079) - 124.7844079).toFixed(5) * 1;
+                       var outputPoint = {"lat": lat, "lng": lng};
+                       console.log(outputPoint );
+                       socket.emit('tw_map', {"lat": lat, "lng": lng, "tweet": info});
+                  }      
 
                 tweet.entities.hashtags.forEach(function (hashtag) {
                     var hashStr = normalize(hashtag.text); 
 
-                    if (watchTags.indexOf(hashStr) > -1) {
-                        watchList.symbols[hashStr]++;
+                    // if (watchTags.indexOf(hashStr) > -1) {
+                    //     watchList.symbols[hashStr]++;
                         socket.emit('message', {name: hashStr});
-                    }
+                    // }
                 });
             });
     });
@@ -100,50 +137,4 @@ function arrayUnique(array) {
 
     return a;
 }
-
-
-function getGeolocation(tweet){
-      
-       
-  if (tweet.coordinates !== null) { 
-       var outputPonit ={};    
-       outputPonit.lat = tweet.coordinates.coordinates[0];
-       outputPonit.lng = tweet.coordinates.coordinates[1];
-       console.log( outputPonit);
-     }
-
-   else if (tweet.user.location){
-        
-       googleMapsClient.geocode( {address:tweet.user.location}, function(err, response) 
-  {
-    if (!err) 
-    { 
-      var lat = response.json.results[0].geometry.location.lat;
-      var lng = response.json.results[0].geometry.location.lng;
-      var outputPoint = {"lat": lat, "lng": lng};
-      console.log( outputPoint);
-      // outputPonit.lat = lat;
-      // outputPonit.lng = lng;    
-      // console.log(outputPonit.lat);
-      // console.log(outputPonit.lng); 
-
-    } 
-  });
-     }
-
-     else{
-      var lat = (Math.random() * (-125.0011 - 24.9493) + 24.9493).toFixed(3) * 1;
-      var lng = (Math.random() * (-66.9326 - 49.5904) + 49.5904).toFixed(3) * 1;
-      var outputPoint = {"lat": lat, "lng": lng};
-      console.log(outputPoint );
-          }      
-};
-
-
-// outputPonit.name = tweet.user.name;
-//        outputPonit.screen_name = tweet.user.screen_name;
-//        outputPonit.text = tweet.text;
-//        outputPonit.profile_image_url = tweet.user.profile_image_url;
-//        outputPonit.location = tweet.user.location;
-       
 
