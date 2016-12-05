@@ -20,10 +20,10 @@ http.listen(8080, function(){
 });
 
 var client = new Twit({
-  consumer_key: "GVtH1ej4Kd4FvbtueO27E3wI8",
-  consumer_secret: "LWTf5s3Jy1YSxv7INFhzKLEUBJhtMUQv2AilDuOcpXh0IWry5R",
-  access_token: "768253086607429632-wbIchq8u08Eg0Cyk1Cs2ZvQR5EU9Q2Z",
-  access_token_secret: "JG1CiSpiNRtV1dzr38d1pgTeu8Q60LBUSCRr3J0LauUgX"
+  consumer_key: "Your key",
+  consumer_secret: "Your secret",
+  access_token: "Your token",
+  access_token_secret: "Your token secret"
 });
 
 app.get('/', function (req, res) {
