@@ -10,7 +10,8 @@
     "fs": "0.0.1-security",
     "google-maps-api": "^2.0.1",
     "path": "^0.12.7",
-    "socket.io": "^1.5.1"
+    "socket.io": "^1.5.1",
+    "twit": "^2.2.5"
   },
   "devDependencies": {},
   "scripts": {
